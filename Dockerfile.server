@@ -39,6 +39,9 @@ RUN bun install --frozen-lockfile --ignore-scripts
 # Copy full source
 COPY . .
 
+# Pre-create config dir so server starts even without a mounted volume
+RUN mkdir -p /data/craft-agent
+
 # Server configuration
 # Required env vars (set in Railway dashboard):
 #   CRAFT_SERVER_TOKEN  — bearer token for client auth
