@@ -49,6 +49,7 @@ RUN mkdir -p /data/craft-agent
 ENV CRAFT_RPC_HOST=0.0.0.0
 ENV CRAFT_CONFIG_DIR=/data/craft-agent
 ENV CRAFT_IS_PACKAGED=false
+ENV CRAFT_BUNDLED_ASSETS_ROOT=/app/apps/electron
 
 # Railway ignores EXPOSE and sets PORT dynamically — the server reads PORT at runtime
 
