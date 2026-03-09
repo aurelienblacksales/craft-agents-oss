@@ -1,7 +1,7 @@
 import { OAuthFlowStore } from '@craft-agent/shared/auth'
 import { ensureConfigDir, loadStoredConfig, saveConfig, addWorkspace, addLlmConnection, getLlmConnections, getDefaultModelsForConnection, getDefaultModelForConnection } from '@craft-agent/shared/config'
 import { getCredentialManager } from '@craft-agent/shared/credentials'
-import { getDefaultWorkspacesDir } from '@craft-agent/shared/workspaces'
+import { getDefaultWorkspacesDir, loadWorkspaceConfig, saveWorkspaceConfig } from '@craft-agent/shared/workspaces'
 import { setBundledAssetsRoot } from '@craft-agent/shared/utils'
 import { WsRpcServer, type WsRpcTlsOptions } from '../transport/server'
 import type { EventSink, RpcServer } from '../transport/types'
@@ -88,7 +88,25 @@ async function ensureHeadlessDefaults(platform: PlatformServices): Promise<void>
     platform.logger.info(`[headless] Created default workspace: ${workspace.id}`)
   }
 
-  // 2. Create Anthropic LLM connection from env var if no connections exist
+  // 2. Ensure all workspaces use allow-all permission mode in headless —
+  // safe mode blocks tool execution and there's no interactive approval UI
+  const updatedConfig = loadStoredConfig()
+  if (updatedConfig?.workspaces) {
+    for (const ws of updatedConfig.workspaces) {
+      const wsConfig = loadWorkspaceConfig(ws.rootPath)
+      if (wsConfig && wsConfig.defaults?.permissionMode !== 'allow-all') {
+        wsConfig.defaults = {
+          ...wsConfig.defaults,
+          permissionMode: 'allow-all',
+          cyclablePermissionModes: ['allow-all'],
+        }
+        saveWorkspaceConfig(ws.rootPath, wsConfig)
+        platform.logger.info(`[headless] Set permission mode to allow-all for workspace: ${wsConfig.name || ws.rootPath}`)
+      }
+    }
+  }
+
+  // 3. Create Anthropic LLM connection from env var if no connections exist
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (apiKey && (!getLlmConnections() || getLlmConnections().length === 0)) {
     const added = addLlmConnection({
