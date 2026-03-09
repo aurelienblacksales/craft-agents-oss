@@ -1,0 +1,24 @@
+/**
+ * Craft Agent Web Client — Main stylesheet
+ */
+
+@import "@craft-agent/ui/styles";
+
+/* Scan this app's source files for Tailwind classes */
+@source "../src/**/*.{tsx,ts}";
+
+/* Scan packages/ui components for Tailwind classes */
+@source "../../../packages/ui/src/**/*.{tsx,ts}";
+
+:root {
+  --background: white;
+}
+
+.dark {
+  --background: oklch(0.26 0.01 270);
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}

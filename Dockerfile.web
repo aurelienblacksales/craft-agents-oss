@@ -1,0 +1,43 @@
+# Dockerfile for Craft Agent web client
+# Builds the Vite app and serves with nginx
+
+# --- Build stage ---
+FROM oven/bun:1 AS build
+
+WORKDIR /app
+
+# Copy package files for caching
+COPY package.json bun.lock bunfig.toml ./
+COPY packages/core/package.json packages/core/
+COPY packages/shared/package.json packages/shared/
+COPY packages/server-core/package.json packages/server-core/
+COPY packages/server/package.json packages/server/
+COPY packages/ui/package.json packages/ui/
+COPY packages/session-tools-core/package.json packages/session-tools-core/
+COPY packages/session-mcp-server/package.json packages/session-mcp-server/
+COPY packages/pi-agent-server/package.json packages/pi-agent-server/
+COPY apps/cli/package.json apps/cli/
+COPY apps/viewer/package.json apps/viewer/
+COPY apps/web/package.json apps/web/
+COPY apps/electron/package.json apps/electron/
+COPY apps/marketing/package.json apps/marketing/
+
+RUN bun install --frozen-lockfile
+
+COPY . .
+
+# Build the web app
+RUN bun run vite build --config apps/web/vite.config.ts
+
+# --- Serve stage ---
+FROM nginx:alpine
+
+# Copy built assets
+COPY --from=build /app/apps/web/dist /usr/share/nginx/html
+
+# Nginx config with WebSocket proxy support
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

@@ -1,0 +1,55 @@
+# Dockerfile for Craft Agent headless server
+# Deploy on Railway with a persistent volume at /data/craft-agent
+
+FROM oven/bun:1 AS base
+
+# Install Python 3 + uv (for document processing tools) and build deps for sharp
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-venv \
+    curl \
+    ca-certificates \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv (Python package manager used by doc tools)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
+WORKDIR /app
+
+# Copy package files first for better layer caching
+COPY package.json bun.lock bunfig.toml ./
+COPY packages/core/package.json packages/core/
+COPY packages/shared/package.json packages/shared/
+COPY packages/server-core/package.json packages/server-core/
+COPY packages/server/package.json packages/server/
+COPY packages/ui/package.json packages/ui/
+COPY packages/session-tools-core/package.json packages/session-tools-core/
+COPY packages/session-mcp-server/package.json packages/session-mcp-server/
+COPY packages/pi-agent-server/package.json packages/pi-agent-server/
+COPY apps/cli/package.json apps/cli/
+COPY apps/viewer/package.json apps/viewer/
+COPY apps/web/package.json apps/web/
+COPY apps/electron/package.json apps/electron/
+COPY apps/marketing/package.json apps/marketing/
+
+# Install dependencies
+RUN bun install --frozen-lockfile
+
+# Copy full source
+COPY . .
+
+# Server configuration
+ENV CRAFT_RPC_HOST=0.0.0.0
+ENV CRAFT_RPC_PORT=9100
+ENV CRAFT_CONFIG_DIR=/data/craft-agent
+ENV CRAFT_IS_PACKAGED=false
+
+EXPOSE 9100
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:9100/ || exit 1
+
+CMD ["bun", "run", "packages/server/src/index.ts"]

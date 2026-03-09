@@ -1,0 +1,33 @@
+# Docker Compose for local development and testing
+# Simulates the Railway two-service architecture
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "9100:9100"
+    environment:
+      - CRAFT_SERVER_TOKEN=${CRAFT_SERVER_TOKEN:-dev-token-change-me}
+      - CRAFT_RPC_HOST=0.0.0.0
+      - CRAFT_RPC_PORT=9100
+      - CRAFT_CONFIG_DIR=/data/craft-agent
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - craft-data:/data/craft-agent
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "8080:80"
+    environment:
+      - CRAFT_SERVER_HOST=server
+      - CRAFT_SERVER_PORT=9100
+    depends_on:
+      - server
+
+volumes:
+  craft-data:
