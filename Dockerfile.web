@@ -20,7 +20,6 @@ COPY apps/cli/package.json apps/cli/
 COPY apps/viewer/package.json apps/viewer/
 COPY apps/web/package.json apps/web/
 COPY apps/electron/package.json apps/electron/
-COPY apps/marketing/package.json apps/marketing/
 
 RUN bun install --frozen-lockfile
 
