@@ -21,6 +21,7 @@
 
 import { join } from 'node:path'
 import { readFileSync } from 'node:fs'
+import type { Server as HttpServer } from 'node:http'
 import { startHeadlessServer } from '@craft-agent/server-core/bootstrap'
 import type { WsRpcTlsOptions } from '@craft-agent/server-core/transport'
 import { registerCoreRpcHandlers, cleanupSessionFileWatchForClient } from '@craft-agent/server-core/handlers/rpc'
@@ -31,106 +32,105 @@ import type { HandlerDeps } from '@craft-agent/server-core/handlers'
 
 process.env.CRAFT_IS_PACKAGED ??= 'false'
 
-console.log(`[craft-server] Starting... (PORT=${process.env.PORT ?? 'unset'}, CRAFT_RPC_PORT=${process.env.CRAFT_RPC_PORT ?? 'unset'})`)
+/**
+ * Boot the full server. Called from entrypoint.ts after the health endpoint is live.
+ * Receives the pre-created HTTP server so WebSocket handling attaches to it.
+ */
+export async function boot(existingHttpServer?: HttpServer): Promise<void> {
+  console.log(`[craft-server] Booting full server... (PORT=${process.env.PORT ?? 'unset'}, CRAFT_RPC_PORT=${process.env.CRAFT_RPC_PORT ?? 'unset'})`)
 
-// In dev (monorepo), bundled assets root is the repo root (4 levels up from this file).
-// In packaged mode, use CRAFT_BUNDLED_ASSETS_ROOT env or cwd.
-const bundledAssetsRoot = process.env.CRAFT_BUNDLED_ASSETS_ROOT
-  ?? join(import.meta.dir, '..', '..', '..', '..')
+  // In dev (monorepo), bundled assets root is the repo root (4 levels up from this file).
+  // In packaged mode, use CRAFT_BUNDLED_ASSETS_ROOT env or cwd.
+  const bundledAssetsRoot = process.env.CRAFT_BUNDLED_ASSETS_ROOT
+    ?? join(import.meta.dir, '..', '..', '..', '..')
 
-// TLS configuration — when cert + key paths are provided, server listens on wss://
-let tls: WsRpcTlsOptions | undefined
-const tlsCertPath = process.env.CRAFT_RPC_TLS_CERT
-const tlsKeyPath = process.env.CRAFT_RPC_TLS_KEY
-if (tlsCertPath || tlsKeyPath) {
-  if (!tlsCertPath || !tlsKeyPath) {
-    console.error('TLS requires both CRAFT_RPC_TLS_CERT and CRAFT_RPC_TLS_KEY.')
-    process.exit(1)
+  // TLS configuration — when cert + key paths are provided, server listens on wss://
+  let tls: WsRpcTlsOptions | undefined
+  const tlsCertPath = process.env.CRAFT_RPC_TLS_CERT
+  const tlsKeyPath = process.env.CRAFT_RPC_TLS_KEY
+  if (tlsCertPath || tlsKeyPath) {
+    if (!tlsCertPath || !tlsKeyPath) {
+      throw new Error('TLS requires both CRAFT_RPC_TLS_CERT and CRAFT_RPC_TLS_KEY.')
+    }
+    tls = {
+      cert: readFileSync(tlsCertPath),
+      key: readFileSync(tlsKeyPath),
+      ...(process.env.CRAFT_RPC_TLS_CA ? { ca: readFileSync(process.env.CRAFT_RPC_TLS_CA) } : {}),
+    }
   }
-  tls = {
-    cert: readFileSync(tlsCertPath),
-    key: readFileSync(tlsKeyPath),
-    ...(process.env.CRAFT_RPC_TLS_CA ? { ca: readFileSync(process.env.CRAFT_RPC_TLS_CA) } : {}),
+
+  const instance = await startHeadlessServer<SessionManager, HandlerDeps>({
+    bundledAssetsRoot,
+    tls,
+    existingHttpServer,
+    applyPlatformToSubsystems: (platform) => {
+      setFetcherPlatform(platform)
+      setSessionPlatform(platform)
+      setSessionRuntimeHooks({
+        updateBadgeCount: () => {},
+        captureException: (error) => {
+          const err = error instanceof Error ? error : new Error(String(error))
+          platform.captureError?.(err)
+        },
+      })
+      setSearchPlatform(platform)
+      setImageProcessor(platform.imageProcessor)
+    },
+    initModelRefreshService: () => initModelRefreshService(async (slug: string) => {
+      const { getCredentialManager } = await import('@craft-agent/shared/credentials')
+      const manager = getCredentialManager()
+      const [apiKey, oauth] = await Promise.all([
+        manager.getLlmApiKey(slug).catch(() => null),
+        manager.getLlmOAuth(slug).catch(() => null),
+      ])
+      return {
+        apiKey: apiKey ?? undefined,
+        oauthAccessToken: oauth?.accessToken,
+        oauthRefreshToken: oauth?.refreshToken,
+        oauthIdToken: oauth?.idToken,
+      }
+    }),
+    createSessionManager: () => new SessionManager(),
+    createHandlerDeps: ({ sessionManager, platform, oauthFlowStore }) => ({
+      sessionManager,
+      platform,
+      oauthFlowStore,
+    }),
+    registerAllRpcHandlers: registerCoreRpcHandlers,
+    setSessionEventSink: (sessionManager, sink) => {
+      sessionManager.setEventSink(sink)
+    },
+    initializeSessionManager: async (sessionManager) => {
+      await sessionManager.initialize()
+    },
+    cleanupSessionManager: async (sessionManager) => {
+      try {
+        await sessionManager.flushAllSessions()
+      } finally {
+        sessionManager.cleanup()
+      }
+    },
+    cleanupClientResources: cleanupSessionFileWatchForClient,
+  })
+
+  console.log(`CRAFT_SERVER_URL=${instance.protocol}://${instance.host}:${instance.port}`)
+  console.log(`CRAFT_SERVER_TOKEN=${instance.token}`)
+
+  // Warn if binding to a non-localhost address without TLS — tokens would be sent in cleartext
+  const isLocalBind = instance.host === '127.0.0.1' || instance.host === 'localhost' || instance.host === '::1'
+  if (!isLocalBind && instance.protocol === 'ws') {
+    console.warn(
+      '\n⚠️  WARNING: Server is listening on a network address without TLS.\n' +
+      '   Authentication tokens will be sent in cleartext.\n' +
+      '   Set CRAFT_RPC_TLS_CERT and CRAFT_RPC_TLS_KEY to enable wss://.\n'
+    )
   }
-}
 
-const instance = await (async () => {
-  try {
-    return await startHeadlessServer<SessionManager, HandlerDeps>({
-      bundledAssetsRoot,
-      tls,
-      applyPlatformToSubsystems: (platform) => {
-        setFetcherPlatform(platform)
-        setSessionPlatform(platform)
-        setSessionRuntimeHooks({
-          updateBadgeCount: () => {},
-          captureException: (error) => {
-            const err = error instanceof Error ? error : new Error(String(error))
-            platform.captureError?.(err)
-          },
-        })
-        setSearchPlatform(platform)
-        setImageProcessor(platform.imageProcessor)
-      },
-      initModelRefreshService: () => initModelRefreshService(async (slug: string) => {
-        const { getCredentialManager } = await import('@craft-agent/shared/credentials')
-        const manager = getCredentialManager()
-        const [apiKey, oauth] = await Promise.all([
-          manager.getLlmApiKey(slug).catch(() => null),
-          manager.getLlmOAuth(slug).catch(() => null),
-        ])
-        return {
-          apiKey: apiKey ?? undefined,
-          oauthAccessToken: oauth?.accessToken,
-          oauthRefreshToken: oauth?.refreshToken,
-          oauthIdToken: oauth?.idToken,
-        }
-      }),
-      createSessionManager: () => new SessionManager(),
-      createHandlerDeps: ({ sessionManager, platform, oauthFlowStore }) => ({
-        sessionManager,
-        platform,
-        oauthFlowStore,
-      }),
-      registerAllRpcHandlers: registerCoreRpcHandlers,
-      setSessionEventSink: (sessionManager, sink) => {
-        sessionManager.setEventSink(sink)
-      },
-      initializeSessionManager: async (sessionManager) => {
-        await sessionManager.initialize()
-      },
-      cleanupSessionManager: async (sessionManager) => {
-        try {
-          await sessionManager.flushAllSessions()
-        } finally {
-          sessionManager.cleanup()
-        }
-      },
-      cleanupClientResources: cleanupSessionFileWatchForClient,
-    })
-  } catch (error) {
-    console.error('[craft-server] Fatal startup error:', error)
-    process.exit(1)
+  const shutdown = async () => {
+    await instance.stop()
+    process.exit(0)
   }
-})()
 
-console.log(`CRAFT_SERVER_URL=${instance.protocol}://${instance.host}:${instance.port}`)
-console.log(`CRAFT_SERVER_TOKEN=${instance.token}`)
-
-// Warn if binding to a non-localhost address without TLS — tokens would be sent in cleartext
-const isLocalBind = instance.host === '127.0.0.1' || instance.host === 'localhost' || instance.host === '::1'
-if (!isLocalBind && instance.protocol === 'ws') {
-  console.warn(
-    '\n⚠️  WARNING: Server is listening on a network address without TLS.\n' +
-    '   Authentication tokens will be sent in cleartext.\n' +
-    '   Set CRAFT_RPC_TLS_CERT and CRAFT_RPC_TLS_KEY to enable wss://.\n'
-  )
+  process.on('SIGINT', shutdown)
+  process.on('SIGTERM', shutdown)
 }
-
-const shutdown = async () => {
-  await instance.stop()
-  process.exit(0)
-}
-
-process.on('SIGINT', shutdown)
-process.on('SIGTERM', shutdown)

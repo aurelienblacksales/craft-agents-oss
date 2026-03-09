@@ -52,4 +52,6 @@ ENV CRAFT_IS_PACKAGED=false
 
 # Railway ignores EXPOSE and sets PORT dynamically — the server reads PORT at runtime
 
-CMD ["bun", "run", "packages/server/src/index.ts"]
+# Use the resilient entrypoint: starts health endpoint immediately (before heavy imports)
+# so Railway healthchecks pass while the full server bootstraps
+CMD ["bun", "run", "packages/server/src/entrypoint.ts"]
