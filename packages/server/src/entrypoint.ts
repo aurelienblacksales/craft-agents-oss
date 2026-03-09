@@ -22,9 +22,10 @@ let bootError: string | null = null
 console.log(`[craft-server] entrypoint starting (host=${host}, port=${port})`)
 
 // Start health endpoint IMMEDIATELY — zero heavy dependencies
+// IMPORTANT: Always return HTTP 200 so Railway/PaaS healthchecks pass.
+// Boot status is conveyed in the JSON body, not the HTTP status code.
 const healthServer: Server = createServer((_req: IncomingMessage, res: ServerResponse) => {
-  const status = bootStatus === 'ready' ? 200 : bootStatus === 'failed' ? 503 : 200
-  res.writeHead(status, { 'Content-Type': 'application/json' })
+  res.writeHead(200, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify({
     status: bootStatus,
     ...(bootError ? { error: bootError } : {}),
@@ -53,8 +54,9 @@ try {
   console.log('[craft-server] Full server boot complete')
 } catch (error) {
   bootStatus = 'failed'
-  bootError = error instanceof Error ? error.message : String(error)
-  console.error('[craft-server] Fatal startup error:', error)
+  const stack = error instanceof Error ? error.stack ?? error.message : String(error)
+  bootError = stack
+  console.error('[craft-server] Fatal startup error:', stack)
   // Health endpoint stays up so Railway doesn't kill the container.
   // Hit GET / to see the error remotely.
 }

@@ -112,9 +112,14 @@ async function ensureHeadlessDefaults(platform: PlatformServices): Promise<void>
 export async function startHeadlessServer<TSessionManager, THandlerDeps>(
   options: HeadlessServerBootstrapOptions<TSessionManager, THandlerDeps>,
 ): Promise<HeadlessServerInstance<TSessionManager>> {
-  const serverToken = options.serverToken ?? process.env.CRAFT_SERVER_TOKEN
+  let serverToken = options.serverToken ?? process.env.CRAFT_SERVER_TOKEN
   if (!serverToken) {
-    throw new Error('Server token is required. Pass options.serverToken or set CRAFT_SERVER_TOKEN.')
+    // Auto-generate a token so headless deployments work without manual config.
+    // The generated token is printed to stdout so the operator can retrieve it.
+    const { randomUUID } = await import('node:crypto')
+    serverToken = randomUUID()
+    process.env.CRAFT_SERVER_TOKEN = serverToken
+    console.warn('[headless] CRAFT_SERVER_TOKEN not set — auto-generated token (see CRAFT_SERVER_TOKEN in logs)')
   }
 
   const rpcHost = options.rpcHost ?? process.env.CRAFT_RPC_HOST ?? '127.0.0.1'
