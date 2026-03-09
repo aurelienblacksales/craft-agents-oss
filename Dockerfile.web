@@ -42,5 +42,6 @@ COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 # Override via Railway dashboard (e.g., craft-agent-server.railway.internal)
 ENV CRAFT_SERVER_HOST=craft-agent-server.railway.internal
 ENV CRAFT_SERVER_PORT=9100
+ENV PORT=80
 
 EXPOSE 80

@@ -3,7 +3,7 @@
 # Variables are substituted by envsubst at container startup
 
 server {
-    listen 80;
+    listen ${PORT};
     server_name _;
 
     root /usr/share/nginx/html;
