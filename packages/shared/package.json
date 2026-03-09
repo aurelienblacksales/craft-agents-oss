@@ -13,6 +13,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./agent": "./src/agent/index.ts",
+    "./agent/backend": "./src/agent/backend/index.ts",
     "./agent/modes": "./src/agent/mode-types.ts",
     "./agent/mode-types": "./src/agent/mode-types.ts",
     "./agent/thinking-levels": "./src/agent/thinking-levels.ts",
@@ -20,6 +21,7 @@
     "./auth/callback-page": "./src/auth/callback-page.ts",
     "./auth/types": "./src/auth/types.ts",
     "./config": "./src/config/index.ts",
+    "./config/models": "./src/config/models.ts",
     "./docs": "./src/docs/index.ts",
     "./docs/doc-links": "./src/docs/doc-links.ts",
     "./config/types": "./src/config/types.ts",
@@ -31,6 +33,7 @@
     "./sources/types": "./src/sources/types.ts",
     "./workspaces": "./src/workspaces/index.ts",
     "./utils": "./src/utils/index.ts",
+    "./utils/files": "./src/utils/files.ts",
     "./utils/toolNames": "./src/utils/toolNames.ts",
     "./utils/logo": "./src/utils/logo.ts",
     "./utils/service-url": "./src/utils/service-url.ts",
