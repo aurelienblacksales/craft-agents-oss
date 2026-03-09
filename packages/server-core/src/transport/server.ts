@@ -75,6 +75,8 @@ export interface WsRpcServerOptions {
   onClientConnected?: (info: { clientId: string; webContentsId: number | null; workspaceId: string | null }) => void
   /** Called when a client disconnects. */
   onClientDisconnected?: (clientId: string) => void
+  /** Pre-created and already-listening HTTP server. When provided, listen() attaches WebSocket handling to it instead of creating a new server. */
+  existingHttpServer?: HttpServer
 }
 
 // ---------------------------------------------------------------------------
@@ -100,6 +102,7 @@ export class WsRpcServer implements RpcServer {
   private readonly tlsOptions: WsRpcTlsOptions | null
   private readonly onClientConnected: WsRpcServerOptions['onClientConnected']
   private readonly onClientDisconnected: WsRpcServerOptions['onClientDisconnected']
+  private readonly existingHttpServer: HttpServer | null
 
   constructor(opts?: WsRpcServerOptions) {
     this.host = opts?.host ?? '127.0.0.1'
@@ -110,6 +113,7 @@ export class WsRpcServer implements RpcServer {
     this.tlsOptions = opts?.tls ?? null
     this.onClientConnected = opts?.onClientConnected
     this.onClientDisconnected = opts?.onClientDisconnected
+    this.existingHttpServer = opts?.existingHttpServer ?? null
   }
 
   /** The actual port the server is listening on (available after listen()). */
@@ -197,6 +201,26 @@ export class WsRpcServer implements RpcServer {
 
   async listen(): Promise<void> {
     return new Promise((resolve, reject) => {
+      if (this.existingHttpServer) {
+        // Reuse a pre-created (and already-listening) HTTP server
+        this._protocol = 'ws'
+        this.httpServer = this.existingHttpServer
+
+        this.wss = new WebSocketServer({ server: this.httpServer })
+
+        const addr = this.httpServer.address()
+        if (typeof addr === 'object' && addr) {
+          this._port = addr.port
+        }
+        this.startHeartbeat()
+
+        this.wss.on('connection', (ws) => {
+          this.onConnection(ws)
+        })
+        resolve()
+        return
+      }
+
       if (this.tlsOptions) {
         // TLS mode: create HTTPS server, attach WebSocketServer to it
         this._protocol = 'wss'

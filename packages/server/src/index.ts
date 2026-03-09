@@ -31,6 +31,8 @@ import type { HandlerDeps } from '@craft-agent/server-core/handlers'
 
 process.env.CRAFT_IS_PACKAGED ??= 'false'
 
+console.log(`[craft-server] Starting... (PORT=${process.env.PORT ?? 'unset'}, CRAFT_RPC_PORT=${process.env.CRAFT_RPC_PORT ?? 'unset'})`)
+
 // In dev (monorepo), bundled assets root is the repo root (4 levels up from this file).
 // In packaged mode, use CRAFT_BUNDLED_ASSETS_ROOT env or cwd.
 const bundledAssetsRoot = process.env.CRAFT_BUNDLED_ASSETS_ROOT
@@ -107,7 +109,7 @@ const instance = await (async () => {
       cleanupClientResources: cleanupSessionFileWatchForClient,
     })
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error))
+    console.error('[craft-server] Fatal startup error:', error)
     process.exit(1)
   }
 })()

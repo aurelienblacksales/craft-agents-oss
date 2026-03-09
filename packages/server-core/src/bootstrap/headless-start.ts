@@ -7,6 +7,7 @@ import { WsRpcServer, type WsRpcTlsOptions } from '../transport/server'
 import type { EventSink, RpcServer } from '../transport/types'
 import { createHeadlessPlatform } from '../runtime/platform-headless'
 import type { PlatformServices } from '../runtime/platform'
+import { createServer as createHttpServer, type Server as HttpServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { join } from 'node:path'
 
 interface ModelRefreshServiceLike {
@@ -106,6 +107,25 @@ async function ensureHeadlessDefaults(platform: PlatformServices): Promise<void>
   }
 }
 
+/**
+ * Start a bare HTTP health server immediately so PaaS healthchecks pass
+ * while the full bootstrap runs. Returns the listening server.
+ */
+function startHealthServer(host: string, port: number): Promise<HttpServer> {
+  return new Promise((resolve, reject) => {
+    const handler = (_req: IncomingMessage, res: ServerResponse) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end('{"status":"ok"}')
+    }
+    const server = createHttpServer(handler)
+    server.on('error', reject)
+    server.listen(port, host, () => {
+      console.log(`[craft-server] Health endpoint listening on ${host}:${port}`)
+      resolve(server)
+    })
+  })
+}
+
 export async function startHeadlessServer<TSessionManager, THandlerDeps>(
   options: HeadlessServerBootstrapOptions<TSessionManager, THandlerDeps>,
 ): Promise<HeadlessServerInstance<TSessionManager>> {
@@ -113,6 +133,17 @@ export async function startHeadlessServer<TSessionManager, THandlerDeps>(
   if (!serverToken) {
     throw new Error('Server token is required. Pass options.serverToken or set CRAFT_SERVER_TOKEN.')
   }
+
+  // Resolve host/port early so we can start the health server ASAP
+  const rpcHost = options.rpcHost ?? process.env.CRAFT_RPC_HOST ?? '127.0.0.1'
+  const rpcPortRaw = options.rpcPort ?? parseInt(process.env.CRAFT_RPC_PORT ?? process.env.PORT ?? '9100', 10)
+  if (!Number.isFinite(rpcPortRaw) || rpcPortRaw < 0 || rpcPortRaw > 65535) {
+    throw new Error(`Invalid RPC port: ${rpcPortRaw}`)
+  }
+  const rpcPort = Math.trunc(rpcPortRaw)
+
+  // Start HTTP health server immediately — PaaS healthchecks pass while we bootstrap
+  const healthServer = options.tls ? null : await startHealthServer(rpcHost, rpcPort)
 
   const platform = options.platformFactory?.() ?? createHeadlessPlatform()
 
@@ -123,20 +154,20 @@ export async function startHeadlessServer<TSessionManager, THandlerDeps>(
 
   options.applyPlatformToSubsystems?.(platform)
 
+  platform.logger.info('[headless] Bootstrapping config artifacts...')
   bootstrapConfigArtifacts(platform)
+
+  platform.logger.info('[headless] Ensuring global config...')
   ensureGlobalConfigExists(platform)
+
+  platform.logger.info('[headless] Setting up headless defaults...')
   await ensureHeadlessDefaults(platform)
 
+  platform.logger.info('[headless] Initializing model refresh service...')
   const modelRefreshService = options.initModelRefreshService()
   const sessionManager = options.createSessionManager()
 
-  const rpcHost = options.rpcHost ?? process.env.CRAFT_RPC_HOST ?? '127.0.0.1'
-  const rpcPortRaw = options.rpcPort ?? parseInt(process.env.CRAFT_RPC_PORT ?? process.env.PORT ?? '9100', 10)
-  if (!Number.isFinite(rpcPortRaw) || rpcPortRaw < 0 || rpcPortRaw > 65535) {
-    throw new Error(`Invalid RPC port: ${rpcPortRaw}`)
-  }
-  const rpcPort = Math.trunc(rpcPortRaw)
-
+  // Attach WebSocket handling to the already-listening HTTP server
   const wsServer = new WsRpcServer({
     host: rpcHost,
     port: rpcPort,
@@ -147,8 +178,10 @@ export async function startHeadlessServer<TSessionManager, THandlerDeps>(
     onClientDisconnected: (clientId) => {
       options.cleanupClientResources?.(clientId)
     },
+    ...(healthServer ? { existingHttpServer: healthServer } : {}),
   })
 
+  platform.logger.info('[headless] Attaching WebSocket server...')
   await wsServer.listen()
 
   const oauthFlowStore = new OAuthFlowStore()
@@ -163,11 +196,12 @@ export async function startHeadlessServer<TSessionManager, THandlerDeps>(
 
   options.setSessionEventSink(sessionManager, wsServer.push.bind(wsServer))
 
+  platform.logger.info('[headless] Initializing session manager...')
   await options.initializeSessionManager(sessionManager)
 
   modelRefreshService.startAll()
 
-  platform.logger.info(`Craft Agent headless server listening on ${wsServer.protocol}://${rpcHost}:${wsServer.port}`)
+  platform.logger.info(`Craft Agent headless server ready on ${wsServer.protocol}://${rpcHost}:${wsServer.port}`)
 
   let stopped = false
   const stop = async (): Promise<void> => {

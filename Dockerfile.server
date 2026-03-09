@@ -50,6 +50,6 @@ ENV CRAFT_RPC_HOST=0.0.0.0
 ENV CRAFT_CONFIG_DIR=/data/craft-agent
 ENV CRAFT_IS_PACKAGED=false
 
-EXPOSE 9100
+# Railway ignores EXPOSE and sets PORT dynamically — the server reads PORT at runtime
 
 CMD ["bun", "run", "packages/server/src/index.ts"]
