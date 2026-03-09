@@ -9,6 +9,7 @@
 
 import { WebSocketServer, type WebSocket } from 'ws'
 import { createServer as createHttpsServer, type Server as HttpsServer } from 'node:https'
+import { createServer as createHttpServer, type Server as HttpServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import {
   PROTOCOL_VERSION,
@@ -82,6 +83,7 @@ export interface WsRpcServerOptions {
 
 export class WsRpcServer implements RpcServer {
   private wss: WebSocketServer | null = null
+  private httpServer: HttpServer | null = null
   private httpsServer: HttpsServer | null = null
   private clients = new Map<string, ClientConnection>()
   private handlers = new Map<string, HandlerFn>()
@@ -207,6 +209,7 @@ export class WsRpcServer implements RpcServer {
 
         this.wss = new WebSocketServer({ server: this.httpsServer })
 
+        this.httpsServer.on('request', this.handleHttpHealth)
         this.httpsServer.on('error', (err) => reject(err))
 
         this.httpsServer.listen(this.requestedPort, this.host, () => {
@@ -218,24 +221,21 @@ export class WsRpcServer implements RpcServer {
           resolve()
         })
       } else {
-        // Plain WS mode (unchanged)
+        // Plain WS mode: use backing HTTP server for health endpoint
         this._protocol = 'ws'
-        this.wss = new WebSocketServer({
-          host: this.host,
-          port: this.requestedPort,
-        })
+        this.httpServer = createHttpServer(this.handleHttpHealth)
 
-        this.wss.on('listening', () => {
-          const addr = this.wss!.address()
+        this.wss = new WebSocketServer({ server: this.httpServer })
+
+        this.httpServer.on('error', (err) => reject(err))
+
+        this.httpServer.listen(this.requestedPort, this.host, () => {
+          const addr = this.httpServer!.address()
           if (typeof addr === 'object' && addr) {
             this._port = addr.port
           }
           this.startHeartbeat()
           resolve()
-        })
-
-        this.wss.on('error', (err) => {
-          reject(err)
         })
       }
 
@@ -264,6 +264,8 @@ export class WsRpcServer implements RpcServer {
     this.clients.clear()
     this.wss?.close()
     this.wss = null
+    this.httpServer?.close()
+    this.httpServer = null
     this.httpsServer?.close()
     this.httpsServer = null
   }
@@ -467,6 +469,11 @@ export class WsRpcServer implements RpcServer {
   // -------------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------------
+
+  private handleHttpHealth = (_req: IncomingMessage, res: ServerResponse) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end('{"status":"ok"}')
+  }
 
   private matchesTarget(client: ClientConnection, target: PushTarget): boolean {
     switch (target.to) {

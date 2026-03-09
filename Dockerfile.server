@@ -40,15 +40,14 @@ RUN bun install --frozen-lockfile --ignore-scripts
 COPY . .
 
 # Server configuration
+# Required env vars (set in Railway dashboard):
+#   CRAFT_SERVER_TOKEN  — bearer token for client auth
+#   ANTHROPIC_API_KEY   — Claude API key
 ENV CRAFT_RPC_HOST=0.0.0.0
 ENV CRAFT_RPC_PORT=9100
 ENV CRAFT_CONFIG_DIR=/data/craft-agent
 ENV CRAFT_IS_PACKAGED=false
 
 EXPOSE 9100
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:9100/ || exit 1
 
 CMD ["bun", "run", "packages/server/src/index.ts"]
