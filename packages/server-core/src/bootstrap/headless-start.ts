@@ -1,10 +1,13 @@
 import { OAuthFlowStore } from '@craft-agent/shared/auth'
-import { ensureConfigDir, loadStoredConfig, saveConfig } from '@craft-agent/shared/config'
+import { ensureConfigDir, loadStoredConfig, saveConfig, addWorkspace, addLlmConnection, getLlmConnections, getDefaultModelsForConnection, getDefaultModelForConnection } from '@craft-agent/shared/config'
+import { getCredentialManager } from '@craft-agent/shared/credentials'
+import { getDefaultWorkspacesDir } from '@craft-agent/shared/workspaces'
 import { setBundledAssetsRoot } from '@craft-agent/shared/utils'
 import { WsRpcServer, type WsRpcTlsOptions } from '../transport/server'
 import type { EventSink, RpcServer } from '../transport/types'
 import { createHeadlessPlatform } from '../runtime/platform-headless'
 import type { PlatformServices } from '../runtime/platform'
+import { join } from 'node:path'
 
 interface ModelRefreshServiceLike {
   startAll(): void
@@ -67,6 +70,42 @@ function ensureGlobalConfigExists(platform: PlatformServices): void {
   platform.logger.info('[headless] Initialized missing global config')
 }
 
+/**
+ * Auto-create a default workspace and LLM connection on first boot.
+ * Enables the web client to work immediately without manual onboarding.
+ */
+async function ensureHeadlessDefaults(platform: PlatformServices): Promise<void> {
+  const config = loadStoredConfig()
+  if (!config) return
+
+  // 1. Create default workspace if none exist
+  if (!config.workspaces || config.workspaces.length === 0) {
+    const workspacePath = join(getDefaultWorkspacesDir(), 'default')
+    const workspace = addWorkspace({ name: 'Default Workspace', rootPath: workspacePath })
+    platform.logger.info(`[headless] Created default workspace: ${workspace.id}`)
+  }
+
+  // 2. Create Anthropic LLM connection from env var if no connections exist
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (apiKey && (!getLlmConnections() || getLlmConnections().length === 0)) {
+    const added = addLlmConnection({
+      slug: 'anthropic-api',
+      name: 'Anthropic (API Key)',
+      providerType: 'anthropic',
+      authType: 'api_key',
+      models: getDefaultModelsForConnection('anthropic'),
+      defaultModel: getDefaultModelForConnection('anthropic'),
+      createdAt: Date.now(),
+    })
+
+    if (added) {
+      const manager = getCredentialManager()
+      await manager.setLlmApiKey('anthropic-api', apiKey)
+      platform.logger.info('[headless] Created default Anthropic LLM connection from ANTHROPIC_API_KEY')
+    }
+  }
+}
+
 export async function startHeadlessServer<TSessionManager, THandlerDeps>(
   options: HeadlessServerBootstrapOptions<TSessionManager, THandlerDeps>,
 ): Promise<HeadlessServerInstance<TSessionManager>> {
@@ -86,6 +125,7 @@ export async function startHeadlessServer<TSessionManager, THandlerDeps>(
 
   bootstrapConfigArtifacts(platform)
   ensureGlobalConfigExists(platform)
+  await ensureHeadlessDefaults(platform)
 
   const modelRefreshService = options.initModelRefreshService()
   const sessionManager = options.createSessionManager()
