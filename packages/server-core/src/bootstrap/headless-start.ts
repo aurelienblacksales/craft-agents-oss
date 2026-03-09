@@ -131,7 +131,7 @@ export async function startHeadlessServer<TSessionManager, THandlerDeps>(
   const sessionManager = options.createSessionManager()
 
   const rpcHost = options.rpcHost ?? process.env.CRAFT_RPC_HOST ?? '127.0.0.1'
-  const rpcPortRaw = options.rpcPort ?? parseInt(process.env.CRAFT_RPC_PORT ?? '9100', 10)
+  const rpcPortRaw = options.rpcPort ?? parseInt(process.env.CRAFT_RPC_PORT ?? process.env.PORT ?? '9100', 10)
   if (!Number.isFinite(rpcPortRaw) || rpcPortRaw < 0 || rpcPortRaw > 65535) {
     throw new Error(`Invalid RPC port: ${rpcPortRaw}`)
   }

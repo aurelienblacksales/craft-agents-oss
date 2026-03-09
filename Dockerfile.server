@@ -44,7 +44,6 @@ COPY . .
 #   CRAFT_SERVER_TOKEN  — bearer token for client auth
 #   ANTHROPIC_API_KEY   — Claude API key
 ENV CRAFT_RPC_HOST=0.0.0.0
-ENV CRAFT_RPC_PORT=9100
 ENV CRAFT_CONFIG_DIR=/data/craft-agent
 ENV CRAFT_IS_PACKAGED=false
 
