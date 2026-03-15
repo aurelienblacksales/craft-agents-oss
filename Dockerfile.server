@@ -18,7 +18,8 @@ COPY packages/server-core/package.json packages/server-core/
 COPY packages/server/package.json packages/server/
 COPY packages/session-tools-core/package.json packages/session-tools-core/
 COPY packages/ui/package.json packages/ui/
-COPY packages/bridge-mcp-server/package.json packages/bridge-mcp-server/
+COPY packages/pi-agent-server/package.json packages/pi-agent-server/
+COPY packages/session-mcp-server/package.json packages/session-mcp-server/
 COPY apps/electron/package.json apps/electron/
 COPY apps/web/package.json apps/web/
 COPY apps/cli/package.json apps/cli/
