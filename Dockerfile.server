@@ -36,6 +36,10 @@ COPY packages/ packages/
 COPY apps/electron/ apps/electron/
 COPY scripts/start-server.sh scripts/start-server.sh
 
+# Build subprocess servers (the runtime resolver looks for dist/index.js)
+RUN cd packages/pi-agent-server && bun build src/index.ts --outdir=dist --target=bun --format=esm --external koffi
+RUN cd packages/session-mcp-server && bun build src/index.ts --outdir=dist --target=node --format=cjs
+
 # Pre-create data directories
 RUN mkdir -p /data/craft-agent/workspaces && chmod +x scripts/start-server.sh
 
