@@ -34,7 +34,7 @@ if [ -z "$CRAFT_SERVER_TOKEN" ]; then
 fi
 
 # Ensure data directories exist
-mkdir -p "${CRAFT_DATA_DIR:-/data/craft-agent}/workspaces"
+mkdir -p "${CRAFT_DATA_DIR:-/data/.craft-agent}/workspaces"
 
 echo "=== Launching bun ==="
 

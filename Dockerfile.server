@@ -45,19 +45,24 @@ RUN groupadd --gid 1001 craft && \
     useradd --uid 1001 --gid craft --shell /bin/sh --create-home craft
 
 # Pre-create data directories with correct ownership
-RUN mkdir -p /data/craft-agent/workspaces && \
-    chown -R craft:craft /data/craft-agent && \
+# All paths must be consistent:
+#   homedir()/.craft-agent = /data/.craft-agent (credentials.enc)
+#   CRAFT_CONFIG_DIR       = /data/.craft-agent (config.json)
+#   CRAFT_DATA_DIR         = /data/.craft-agent (workspaces/)
+RUN mkdir -p /data/.craft-agent/workspaces && \
+    chown -R craft:craft /data && \
     chown -R craft:craft /app && \
     chmod +x scripts/start-server.sh
 
 # Environment defaults — Railway overrides PORT automatically
 ENV CRAFT_BUNDLED_ASSETS_ROOT=/app/apps/electron
 ENV CRAFT_IS_PACKAGED=false
-ENV CRAFT_DATA_DIR=/data/craft-agent
+ENV CRAFT_DATA_DIR=/data/.craft-agent
+ENV CRAFT_CONFIG_DIR=/data/.craft-agent
 ENV CRAFT_RPC_HOST=0.0.0.0
 ENV PORT=9100
 ENV NODE_ENV=production
-ENV HOME=/home/craft
+ENV HOME=/data
 
 # Switch to non-root user
 USER craft
