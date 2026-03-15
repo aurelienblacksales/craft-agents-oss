@@ -46,6 +46,7 @@ COPY nginx.conf /etc/nginx/nginx-template.conf
 # Custom entrypoint: substitutes only $PORT, $SERVER_HOST, $SERVER_PORT
 # leaving nginx variables ($uri, $host, $http_upgrade, etc.) intact
 COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 ENV PORT=80
 ENV SERVER_HOST=server
