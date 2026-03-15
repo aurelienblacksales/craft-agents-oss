@@ -40,8 +40,15 @@ COPY scripts/start-server.sh scripts/start-server.sh
 RUN cd packages/pi-agent-server && bun build src/index.ts --outdir=dist --target=bun --format=esm --external koffi
 RUN cd packages/session-mcp-server && bun build src/index.ts --outdir=dist --target=node --format=cjs
 
-# Pre-create data directories
-RUN mkdir -p /data/craft-agent/workspaces && chmod +x scripts/start-server.sh
+# Create non-root user — Claude Code SDK refuses --dangerously-skip-permissions as root
+RUN groupadd --gid 1001 craft && \
+    useradd --uid 1001 --gid craft --shell /bin/sh --create-home craft
+
+# Pre-create data directories with correct ownership
+RUN mkdir -p /data/craft-agent/workspaces && \
+    chown -R craft:craft /data/craft-agent && \
+    chown -R craft:craft /app && \
+    chmod +x scripts/start-server.sh
 
 # Environment defaults — Railway overrides PORT automatically
 ENV CRAFT_BUNDLED_ASSETS_ROOT=/app/apps/electron
@@ -50,6 +57,10 @@ ENV CRAFT_DATA_DIR=/data/craft-agent
 ENV CRAFT_RPC_HOST=0.0.0.0
 ENV PORT=9100
 ENV NODE_ENV=production
+ENV HOME=/home/craft
+
+# Switch to non-root user
+USER craft
 
 # Health check
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=5 \
