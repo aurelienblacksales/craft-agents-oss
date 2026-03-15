@@ -9,10 +9,9 @@
  * This allows the web app to be immediately usable without onboarding.
  */
 
-import { loadStoredConfig, saveConfig, addWorkspace, setActiveWorkspace } from '@craft-agent/shared/config'
-import { getCredentialManager } from '@craft-agent/shared/credentials'
-import { saveLlmConnection, setDefaultLlmConnection, getLlmConnection } from '@craft-agent/shared/config/llm-connections'
+import { loadStoredConfig, saveConfig, addWorkspace, setActiveWorkspace, addLlmConnection, setDefaultLlmConnection, getLlmConnection } from '@craft-agent/shared/config'
 import type { LlmConnection } from '@craft-agent/shared/config/llm-connections'
+import { getCredentialManager } from '@craft-agent/shared/credentials'
 import { loadWorkspaceConfig, saveWorkspaceConfig } from '@craft-agent/shared/workspaces'
 
 const WEB_WORKSPACE_NAME = 'Default Workspace'
@@ -52,12 +51,12 @@ export async function webBootstrap(): Promise<void> {
     const connection: LlmConnection = {
       slug: CLAUDE_CONNECTION_SLUG,
       name: 'Claude (API Key)',
-      provider: 'anthropic',
+      providerType: 'anthropic',
       authType: 'api-key',
-      model: 'claude-sonnet-4-20250514',
-      isDefault: true,
+      defaultModel: 'claude-sonnet-4-20250514',
+      createdAt: Date.now(),
     }
-    saveLlmConnection(connection)
+    addLlmConnection(connection)
     setDefaultLlmConnection(CLAUDE_CONNECTION_SLUG)
     console.log('[web-bootstrap] Created Claude API connection')
   }

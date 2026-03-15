@@ -1,6 +1,6 @@
 FROM oven/bun:latest
 
-# Install Python 3 (for document tools) and curl (for health checks)
+# Install Python 3 (for document tools), curl (for health checks), coreutils (for stdbuf)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
@@ -34,23 +34,24 @@ RUN bun install --ignore-scripts
 # Copy source code (only what the server needs at runtime)
 COPY packages/ packages/
 COPY apps/electron/ apps/electron/
+COPY scripts/start-server.sh scripts/start-server.sh
 
 # Pre-create data directories
-RUN mkdir -p /data/craft-agent/workspaces
+RUN mkdir -p /data/craft-agent/workspaces && chmod +x scripts/start-server.sh
 
 # Environment defaults — Railway overrides PORT automatically
 ENV CRAFT_BUNDLED_ASSETS_ROOT=/app/apps/electron
 ENV CRAFT_IS_PACKAGED=false
 ENV CRAFT_DATA_DIR=/data/craft-agent
 ENV CRAFT_RPC_HOST=0.0.0.0
+ENV PORT=9100
 ENV NODE_ENV=production
 
-# Health check (uses curl installed above)
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD curl -sf http://localhost:${PORT:-9100}/health || exit 1
+# Health check
+HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=5 \
+    CMD curl -sf http://localhost:${PORT}/health || exit 1
 
 EXPOSE 9100
 
-# Use stdbuf to prevent stdout buffering in Docker (critical for Claude Agent SDK)
-# Use shell form so PORT env var is resolved at runtime for CRAFT_RPC_PORT
-ENTRYPOINT ["/bin/sh", "-c", "CRAFT_RPC_PORT=${PORT:-9100} exec stdbuf -oL bun run packages/server/src/index.ts"]
+# Start via wrapper script for diagnostics and env setup
+ENTRYPOINT ["scripts/start-server.sh"]
