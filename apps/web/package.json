@@ -1,0 +1,35 @@
+{
+  "name": "@craft-agent/web",
+  "version": "0.7.1",
+  "description": "Web client for Craft Agents",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@craft-agent/core": "workspace:*",
+    "@craft-agent/shared": "workspace:*",
+    "@craft-agent/server-core": "workspace:*",
+    "@craft-agent/ui": "workspace:*",
+    "@radix-ui/react-context-menu": "^2.2.16",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-popover": "^1.1.15",
+    "@radix-ui/react-switch": "^1.2.6",
+    "@pierre/diffs": "^1.0.4",
+    "chrono-node": "^2.9.0",
+    "cmdk": "^1.1.1",
+    "jotai": "^2.16.0",
+    "jotai-family": "^1.0.1",
+    "motion": "^12.23.26",
+    "react": "^18.3.1",
+    "react-day-picker": "^9.13.0",
+    "react-dom": "^18.3.1",
+    "sonner": "^2.0.7"
+  }
+}
