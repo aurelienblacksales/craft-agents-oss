@@ -31,6 +31,15 @@ import { initModelRefreshService, setFetcherPlatform } from '@craft-agent/server
 import { setSearchPlatform, setImageProcessor } from '@craft-agent/server-core/services'
 import type { HandlerDeps } from '@craft-agent/server-core/handlers'
 
+// Log startup immediately so we can see output in Railway logs
+console.log('[server] Starting Craft Agent server...')
+console.log('[server] PORT=' + (process.env.PORT || '(not set)'))
+console.log('[server] CRAFT_RPC_PORT=' + (process.env.CRAFT_RPC_PORT || '(not set)'))
+console.log('[server] CRAFT_RPC_HOST=' + (process.env.CRAFT_RPC_HOST || '(not set)'))
+console.log('[server] CRAFT_DATA_DIR=' + (process.env.CRAFT_DATA_DIR || '(not set)'))
+console.log('[server] CRAFT_BUNDLED_ASSETS_ROOT=' + (process.env.CRAFT_BUNDLED_ASSETS_ROOT || '(not set)'))
+console.log('[server] CRAFT_SERVER_TOKEN=' + (process.env.CRAFT_SERVER_TOKEN ? '***set***' : '(NOT SET — server will fail!)'))
+
 process.env.CRAFT_IS_PACKAGED ??= 'false'
 
 // In dev (monorepo), bundled assets root is the repo root (4 levels up from this file).
@@ -54,9 +63,12 @@ if (tlsCertPath || tlsKeyPath) {
   }
 }
 
-// Create HTTP server first — WS server attaches to it so both share one port
+// Create HTTP server first — WS server attaches to it so both share one port.
+// This serves /health, /oauth/callback, and /upload.
+console.log('[server] Creating HTTP server...')
 const httpServer = await createHttpServer()
 
+console.log('[server] Starting headless server (WS + session manager)...')
 const instance = await (async () => {
   try {
     return await startHeadlessServer<SessionManager, HandlerDeps>({
@@ -113,13 +125,20 @@ const instance = await (async () => {
       cleanupClientResources: cleanupSessionFileWatchForClient,
     })
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error))
+    console.error('[server] FATAL: Failed to start headless server:', error instanceof Error ? error.message : String(error))
+    if (error instanceof Error && error.stack) {
+      console.error(error.stack)
+    }
     process.exit(1)
   }
 })()
 
 // Auto-provision workspace and LLM connection for web deployments
-await webBootstrap()
+try {
+  await webBootstrap()
+} catch (error) {
+  console.error('[server] WARNING: Web bootstrap failed (non-fatal):', error instanceof Error ? error.message : String(error))
+}
 
 console.log(`CRAFT_SERVER_URL=${instance.protocol}://${instance.host}:${instance.port}`)
 console.log(`CRAFT_SERVER_TOKEN=${instance.token}`)
@@ -133,6 +152,8 @@ if (!isLocalBind && instance.protocol === 'ws') {
     '   Set CRAFT_RPC_TLS_CERT and CRAFT_RPC_TLS_KEY to enable wss://.\n'
   )
 }
+
+console.log('[server] Server ready.')
 
 const shutdown = async () => {
   await instance.stop()
