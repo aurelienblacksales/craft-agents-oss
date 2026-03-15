@@ -1,8 +1,8 @@
-[build]
-dockerfilePath = "Dockerfile.server"
+# NOTE: Do not set dockerfilePath here — it overrides per-service UI settings.
+# Set the Dockerfile path in each Railway service's Settings > Build instead:
+#   - Server service: Dockerfile.server
+#   - Web service: Dockerfile.web
 
 [deploy]
-healthcheckPath = "/health"
-healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
