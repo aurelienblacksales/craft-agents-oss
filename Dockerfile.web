@@ -40,6 +40,11 @@ COPY --from=build /app/apps/web/dist/ /usr/share/nginx/html/
 # nginx config with WebSocket proxy
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 
+# Only substitute our custom env vars, not nginx's own variables ($uri, $host, etc.)
+ENV NGINX_ENVSUBST_FILTER="PORT|SERVER_HOST|SERVER_PORT"
+# Default port (Railway overrides via $PORT env var)
+ENV PORT=80
+
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
