@@ -1,0 +1,52 @@
+FROM oven/bun:latest
+
+# Install Python 3 + pip for document tools (pdf, docx, etc.)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-venv \
+    stdbuf \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy package files first for better layer caching
+COPY package.json bun.lock ./
+COPY packages/core/package.json packages/core/
+COPY packages/shared/package.json packages/shared/
+COPY packages/server-core/package.json packages/server-core/
+COPY packages/server/package.json packages/server/
+COPY packages/session-tools-core/package.json packages/session-tools-core/
+COPY packages/ui/package.json packages/ui/
+COPY packages/bridge-mcp-server/package.json packages/bridge-mcp-server/
+COPY apps/electron/package.json apps/electron/
+COPY apps/web/package.json apps/web/
+COPY apps/cli/package.json apps/cli/
+COPY apps/viewer/package.json apps/viewer/
+
+# Install deps (--ignore-scripts: husky fails without git)
+RUN bun install --ignore-scripts
+
+# Copy source code
+COPY packages/ packages/
+COPY apps/electron/ apps/electron/
+
+# Pre-create data directories
+RUN mkdir -p /data/craft-agent/workspaces
+
+# Environment
+ENV CRAFT_BUNDLED_ASSETS_ROOT=/app/apps/electron
+ENV CRAFT_IS_PACKAGED=false
+ENV CRAFT_DATA_DIR=/data/craft-agent
+ENV CRAFT_RPC_HOST=0.0.0.0
+ENV PORT=9100
+ENV NODE_ENV=production
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/health || exit 1
+
+EXPOSE ${PORT}
+
+# Use stdbuf to prevent stdout buffering issues with Claude Agent SDK
+ENTRYPOINT ["stdbuf", "-oL", "bun", "run", "packages/server/src/index.ts"]

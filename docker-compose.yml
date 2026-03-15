@@ -1,0 +1,41 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CRAFT_SERVER_TOKEN=${CRAFT_SERVER_TOKEN}
+      - CRAFT_RPC_HOST=0.0.0.0
+      - PORT=9100
+      - CRAFT_DATA_DIR=/data/craft-agent
+      - CRAFT_BUNDLED_ASSETS_ROOT=/app/apps/electron
+      - CRAFT_IS_PACKAGED=false
+      # OAuth (optional)
+      - OAUTH_REDIRECT_BASE_URL=${OAUTH_REDIRECT_BASE_URL:-}
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
+      - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      - SLACK_OAUTH_CLIENT_ID=${SLACK_OAUTH_CLIENT_ID:-}
+      - SLACK_OAUTH_CLIENT_SECRET=${SLACK_OAUTH_CLIENT_SECRET:-}
+      - MICROSOFT_OAUTH_CLIENT_ID=${MICROSOFT_OAUTH_CLIENT_ID:-}
+    volumes:
+      - craft-data:/data/craft-agent
+    ports:
+      - "9100:9100"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    environment:
+      - SERVER_HOST=server
+      - SERVER_PORT=9100
+    ports:
+      - "3000:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  craft-data:

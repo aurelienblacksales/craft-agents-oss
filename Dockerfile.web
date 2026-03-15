@@ -1,0 +1,42 @@
+# Stage 1: Build the web client
+FROM oven/bun:latest AS build
+
+WORKDIR /app
+
+# Copy package files for caching
+COPY package.json bun.lock ./
+COPY packages/core/package.json packages/core/
+COPY packages/shared/package.json packages/shared/
+COPY packages/server-core/package.json packages/server-core/
+COPY packages/server/package.json packages/server/
+COPY packages/session-tools-core/package.json packages/session-tools-core/
+COPY packages/ui/package.json packages/ui/
+COPY packages/bridge-mcp-server/package.json packages/bridge-mcp-server/
+COPY apps/electron/package.json apps/electron/
+COPY apps/web/package.json apps/web/
+COPY apps/cli/package.json apps/cli/
+COPY apps/viewer/package.json apps/viewer/
+
+RUN bun install --ignore-scripts
+
+# Copy all source (needed for packages/* imports)
+COPY packages/ packages/
+COPY apps/web/ apps/web/
+COPY apps/electron/src/shared/ apps/electron/src/shared/
+
+# Build the web client
+RUN npx vite build --config apps/web/vite.config.ts
+
+# Stage 2: Serve with nginx
+FROM nginx:alpine
+
+# Copy built files
+COPY --from=build /app/apps/web/dist/ /usr/share/nginx/html/
+
+# nginx config with WebSocket proxy
+COPY nginx.conf /etc/nginx/templates/default.conf.template
+
+EXPOSE 80
+
+# Use envsubst for runtime config
+CMD ["nginx", "-g", "daemon off;"]
