@@ -20,6 +20,9 @@ COPY apps/viewer/package.json apps/viewer/
 
 RUN bun install --ignore-scripts
 
+# Copy root tsconfig (packages/ui/tsconfig.json extends ../../tsconfig.json)
+COPY tsconfig.json ./
+
 # Copy all source (needed for packages/* imports)
 COPY packages/ packages/
 COPY apps/web/ apps/web/
