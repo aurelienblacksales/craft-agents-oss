@@ -26,7 +26,7 @@ COPY apps/web/ apps/web/
 COPY apps/electron/src/shared/ apps/electron/src/shared/
 
 # Build the web client
-RUN npx vite build --config apps/web/vite.config.ts
+RUN bunx vite build --config apps/web/vite.config.ts
 
 # Stage 2: Serve with nginx
 FROM nginx:alpine
