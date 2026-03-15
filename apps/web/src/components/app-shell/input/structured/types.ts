@@ -1,4 +1,4 @@
-import type { PermissionRequest, CredentialRequest, CredentialResponse } from '../../shared/types'
+import type { PermissionRequest, CredentialRequest, CredentialResponse } from '../../../../shared/types'
 import type { AdminApprovalRequestData } from './AdminApprovalRequest'
 
 /**

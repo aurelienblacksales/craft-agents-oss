@@ -268,6 +268,8 @@ export interface PrepareGoogleOAuthOptions {
   callbackPort: number;
   clientId?: string;
   clientSecret?: string;
+  /** Override redirect URI (for web deployments where callback is a public URL). */
+  redirectUri?: string;
 }
 
 /**
@@ -288,7 +290,7 @@ export function prepareGoogleOAuth(options: PrepareGoogleOAuthOptions): Prepared
   const scopes = getGoogleScopes(options);
   const pkce = generatePKCE();
   const state = generateState();
-  const redirectUri = `http://localhost:${options.callbackPort}/callback`;
+  const redirectUri = options.redirectUri || `http://localhost:${options.callbackPort}/callback`;
 
   const authUrl = new URL(GOOGLE_AUTH_URL);
   authUrl.searchParams.set('client_id', clientId);

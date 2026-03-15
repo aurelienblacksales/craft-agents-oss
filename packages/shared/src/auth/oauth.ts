@@ -525,7 +525,7 @@ async function exchangeMcpCodeForTokens(
  * and auth URL construction. The caller provides callbackPort; this function
  * builds the provider-specific redirectUri from it.
  */
-export async function prepareMcpOAuth(mcpUrl: string, callbackPort: number): Promise<PreparedOAuthFlow> {
+export async function prepareMcpOAuth(mcpUrl: string, callbackPort: number, overrideRedirectUri?: string): Promise<PreparedOAuthFlow> {
   const metadata = await discoverOAuthMetadata(mcpUrl);
   if (!metadata) {
     throw new Error(`No OAuth metadata found for ${mcpUrl}`);
@@ -533,7 +533,7 @@ export async function prepareMcpOAuth(mcpUrl: string, callbackPort: number): Pro
 
   const pkce = generatePKCE();
   const state = generateState();
-  const redirectUri = `http://localhost:${callbackPort}${CALLBACK_PATH}`;
+  const redirectUri = overrideRedirectUri || `http://localhost:${callbackPort}${CALLBACK_PATH}`;
 
   let clientId: string;
   if (metadata.registration_endpoint) {

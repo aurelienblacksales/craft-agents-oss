@@ -130,22 +130,31 @@ export function initWebApi(workspaceId?: string): ElectronAPI {
     client!.reconnectNow()
   }
 
-  // performOAuth: web-based OAuth flow (popup window)
+  // performOAuth: web-based OAuth flow (popup window + server-side callback)
   ;(api as any).performOAuth = async (args: {
     sourceSlug: string
     sessionId?: string
     authRequestId?: string
   }): Promise<{ success: boolean; error?: string; email?: string }> => {
     try {
-      // Start OAuth via RPC — server returns the auth URL
-      const result = await client!.invoke('sources:startOAuth', args.sourceSlug)
-      if (!result?.authUrl) {
+      // Build the redirect URI pointing to our server's OAuth callback endpoint
+      const redirectUri = `${window.location.origin}/oauth/callback`
+
+      // Start OAuth via RPC — server returns the auth URL, state, flowId
+      const startResult = await client!.invoke('oauth:start', {
+        sourceSlug: args.sourceSlug,
+        callbackPort: 0, // Not used when redirectUri is provided
+        sessionId: args.sessionId,
+        authRequestId: args.authRequestId,
+        redirectUri,
+      })
+      if (!startResult?.authUrl) {
         return { success: false, error: 'No auth URL returned from server' }
       }
 
-      // Open popup window for OAuth
+      // Open popup window for OAuth consent
       const popup = window.open(
-        result.authUrl,
+        startResult.authUrl,
         'oauth-popup',
         'width=600,height=700,scrollbars=yes',
       )
@@ -154,33 +163,54 @@ export function initWebApi(workspaceId?: string): ElectronAPI {
         return { success: false, error: 'Popup blocked. Please allow popups for this site.' }
       }
 
-      // Wait for OAuth callback via postMessage
-      return await new Promise((resolve) => {
+      // Wait for OAuth callback via postMessage from the /oauth/callback HTML page
+      const callbackResult = await new Promise<{ code?: string; state?: string; error?: string }>((resolve) => {
         const timeout = setTimeout(() => {
           window.removeEventListener('message', handler)
-          resolve({ success: false, error: 'OAuth timeout — window was closed or no response' })
+          resolve({ error: 'OAuth timeout — window was closed or no response' })
         }, 300_000) // 5 minute timeout
 
         function handler(event: MessageEvent) {
           if (event.data?.type === 'oauth-callback') {
             clearTimeout(timeout)
             window.removeEventListener('message', handler)
-            resolve(event.data.result || { success: true })
+            resolve(event.data.result || {})
           }
         }
 
         window.addEventListener('message', handler)
 
-        // Also poll for popup closure
         const pollTimer = setInterval(() => {
           if (popup.closed) {
             clearInterval(pollTimer)
             clearTimeout(timeout)
             window.removeEventListener('message', handler)
-            resolve({ success: false, error: 'OAuth window was closed' })
+            resolve({ error: 'OAuth window was closed' })
           }
         }, 500)
       })
+
+      if (callbackResult.error) {
+        // Cancel the flow on the server
+        await client!.invoke('oauth:cancel', {
+          flowId: startResult.flowId,
+          state: startResult.state,
+        }).catch(() => {})
+        return { success: false, error: callbackResult.error }
+      }
+
+      if (!callbackResult.code) {
+        return { success: false, error: 'No authorization code received' }
+      }
+
+      // Complete the OAuth flow — exchange code for tokens on the server
+      const completeResult = await client!.invoke('oauth:complete', {
+        flowId: startResult.flowId,
+        code: callbackResult.code,
+        state: callbackResult.state || startResult.state,
+      })
+
+      return completeResult
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) }
     }

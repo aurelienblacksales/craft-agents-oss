@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import type { CredentialRequest as CredentialRequestType, CredentialResponse } from '../../shared/types'
+import type { CredentialRequest as CredentialRequestType, CredentialResponse } from '../../../../shared/types'
 import { validateBasicAuthCredentials, getPasswordValue, getPasswordLabel, getPasswordPlaceholder } from '@/utils/auth-validation'
 
 interface CredentialRequestProps {

@@ -243,6 +243,8 @@ export interface PrepareSlackOAuthOptions {
   service?: SlackService;
   userScopes?: string[];
   callbackPort: number;
+  /** Override redirect URI (for web deployments). */
+  redirectUri?: string;
 }
 
 /**
@@ -262,7 +264,7 @@ export function prepareSlackOAuth(options: PrepareSlackOAuthOptions): PreparedOA
   const state = generateState();
 
   // Slack requires HTTPS → use Cloudflare relay
-  const redirectUri = `https://agents.craft.do/auth/slack/callback?port=${options.callbackPort}`;
+  const redirectUri = options.redirectUri || `https://agents.craft.do/auth/slack/callback?port=${options.callbackPort}`;
 
   const authUrl = new URL(SLACK_AUTH_URL);
   authUrl.searchParams.set('client_id', SLACK_CLIENT_ID);

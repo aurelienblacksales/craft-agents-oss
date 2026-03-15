@@ -1,4 +1,4 @@
-import type { PermissionRequest as PermissionRequestType, CredentialRequest as CredentialRequestType } from '../../shared/types'
+import type { PermissionRequest as PermissionRequestType, CredentialRequest as CredentialRequestType } from '../../../shared/types'
 import { PermissionRequest } from './structured/PermissionRequest'
 import { CredentialRequest } from './structured/CredentialRequest'
 import { AdminApprovalRequest } from './structured/AdminApprovalRequest'

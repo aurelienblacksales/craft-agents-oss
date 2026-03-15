@@ -804,7 +804,7 @@ export default function App() {
     }
   }, [])
 
-  const handleCreateSession = useCallback(async (workspaceId: string, options?: import('../shared/types').CreateSessionOptions): Promise<Session> => {
+  const handleCreateSession = useCallback(async (workspaceId: string, options?: import('./shared/types').CreateSessionOptions): Promise<Session> => {
     const session = await window.electronAPI.createSession(workspaceId, options)
     // Add to per-session atom and metadata map (no sessionsAtom)
     addSession(session)
@@ -1149,7 +1149,7 @@ export default function App() {
     requestId: string,
     allowed: boolean,
     alwaysAllow: boolean,
-    options?: import('../shared/types').PermissionResponseOptions,
+    options?: import('./shared/types').PermissionResponseOptions,
   ) => {
     const success = await window.electronAPI.respondToPermission(sessionId, requestId, allowed, alwaysAllow, options)
 

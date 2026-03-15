@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils'
 import { Kbd } from '@/components/ui/kbd'
 import { getHostname, getThemeLuminance } from '@/components/browser/utils'
 import { browserInstancesAtom } from '@/atoms/browser-pane'
-import type { BrowserInstanceInfo } from '../../shared/types'
+import type { BrowserInstanceInfo } from '../../../shared/types'
 
 interface ToolbarStatusSlotProps {
   /** Whether the escape interrupt overlay should be visible (highest priority) */

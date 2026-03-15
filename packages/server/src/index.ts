@@ -24,6 +24,8 @@ import { readFileSync } from 'node:fs'
 import { startHeadlessServer } from '@craft-agent/server-core/bootstrap'
 import type { WsRpcTlsOptions } from '@craft-agent/server-core/transport'
 import { registerCoreRpcHandlers, cleanupSessionFileWatchForClient } from '@craft-agent/server-core/handlers/rpc'
+import { webBootstrap } from './web-bootstrap'
+import { createHttpServer } from './http-server'
 import { SessionManager, setSessionPlatform, setSessionRuntimeHooks } from '@craft-agent/server-core/sessions'
 import { initModelRefreshService, setFetcherPlatform } from '@craft-agent/server-core/model-fetchers'
 import { setSearchPlatform, setImageProcessor } from '@craft-agent/server-core/services'
@@ -52,11 +54,15 @@ if (tlsCertPath || tlsKeyPath) {
   }
 }
 
+// Create HTTP server first — WS server attaches to it so both share one port
+const httpServer = await createHttpServer()
+
 const instance = await (async () => {
   try {
     return await startHeadlessServer<SessionManager, HandlerDeps>({
       bundledAssetsRoot,
       tls,
+      httpServer,
       applyPlatformToSubsystems: (platform) => {
         setFetcherPlatform(platform)
         setSessionPlatform(platform)
@@ -111,6 +117,9 @@ const instance = await (async () => {
     process.exit(1)
   }
 })()
+
+// Auto-provision workspace and LLM connection for web deployments
+await webBootstrap()
 
 console.log(`CRAFT_SERVER_URL=${instance.protocol}://${instance.host}:${instance.port}`)
 console.log(`CRAFT_SERVER_TOKEN=${instance.token}`)

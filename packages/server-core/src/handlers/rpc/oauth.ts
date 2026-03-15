@@ -24,8 +24,9 @@ export function registerOAuthHandlers(server: RpcServer, deps: HandlerDeps): voi
     callbackPort: number
     sessionId?: string
     authRequestId?: string
+    redirectUri?: string
   }) => {
-    const { sourceSlug, callbackPort, sessionId, authRequestId } = args
+    const { sourceSlug, callbackPort, sessionId, authRequestId, redirectUri } = args
 
     if (!ctx.workspaceId) {
       throw new Error('No workspace bound to this client')
@@ -41,7 +42,7 @@ export function registerOAuthHandlers(server: RpcServer, deps: HandlerDeps): voi
       throw new Error(`Source not found: ${sourceSlug}`)
     }
 
-    const prepared = await credManager.prepareOAuth(source, callbackPort)
+    const prepared = await credManager.prepareOAuth(source, callbackPort, redirectUri)
 
     const flowId = randomUUID()
     flowStore.store(createPendingFlow({

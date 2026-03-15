@@ -372,7 +372,7 @@ export class SourceCredentialManager {
    * Returns a PreparedOAuthFlow that should be stored in the flow store
    * and partially returned to the client (authUrl, state, flowId).
    */
-  async prepareOAuth(source: LoadedSource, callbackPort: number): Promise<PreparedOAuthFlow> {
+  async prepareOAuth(source: LoadedSource, callbackPort: number, redirectUri?: string): Promise<PreparedOAuthFlow> {
     const provider = this.detectProvider(source);
 
     switch (provider) {
@@ -401,6 +401,7 @@ export class SourceCredentialManager {
           callbackPort,
           clientId: api?.googleOAuthClientId,
           clientSecret: api?.googleOAuthClientSecret,
+          redirectUri,
         });
       }
 
@@ -417,7 +418,7 @@ export class SourceCredentialManager {
           service = inferSlackServiceFromUrl(api?.baseUrl) || 'full';
         }
 
-        return prepareSlackOAuth({ service, userScopes, callbackPort });
+        return prepareSlackOAuth({ service, userScopes, callbackPort, redirectUri });
       }
 
       case 'microsoft': {
@@ -439,14 +440,14 @@ export class SourceCredentialManager {
           }
         }
 
-        return prepareMicrosoftOAuth({ service, scopes, callbackPort });
+        return prepareMicrosoftOAuth({ service, scopes, callbackPort, redirectUri });
       }
 
       case 'mcp': {
         if (!source.config.mcp?.url) {
           throw new Error('MCP URL not configured');
         }
-        return prepareMcpOAuth(source.config.mcp.url, callbackPort);
+        return prepareMcpOAuth(source.config.mcp.url, callbackPort, redirectUri);
       }
     }
   }

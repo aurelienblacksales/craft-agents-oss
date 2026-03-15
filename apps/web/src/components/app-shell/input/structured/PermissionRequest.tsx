@@ -1,7 +1,7 @@
 import { ShieldAlert, Check, X, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { PermissionRequest as PermissionRequestType } from '../../shared/types'
+import type { PermissionRequest as PermissionRequestType } from '../../../../shared/types'
 import type { PermissionResponse } from './types'
 
 interface PermissionRequestProps {

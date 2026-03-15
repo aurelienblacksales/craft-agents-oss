@@ -33,6 +33,8 @@ export interface HeadlessServerBootstrapOptions<TSessionManager, THandlerDeps> {
   serverId?: string
   /** TLS configuration. When provided, the server listens on wss:// instead of ws://. */
   tls?: WsRpcTlsOptions
+  /** External HTTP server. When provided, WS attaches to it (sharing the same port for HTTP+WS). */
+  httpServer?: import('node:http').Server
 }
 
 export interface HeadlessServerInstance<TSessionManager> {
@@ -104,6 +106,7 @@ export async function startHeadlessServer<TSessionManager, THandlerDeps>(
     validateToken: async (t) => t === serverToken,
     serverId: options.serverId ?? 'headless',
     tls: options.tls,
+    httpServer: options.httpServer,
     onClientDisconnected: (clientId) => {
       options.cleanupClientResources?.(clientId)
     },

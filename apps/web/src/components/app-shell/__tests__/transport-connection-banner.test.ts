@@ -3,7 +3,7 @@ import {
   getTransportBannerCopy,
   shouldShowTransportConnectionBanner,
 } from '../TransportConnectionBanner'
-import type { TransportConnectionState } from '../../shared/types'
+import type { TransportConnectionState } from '../../../shared/types'
 
 function state(overrides: Partial<TransportConnectionState>): TransportConnectionState {
   return {

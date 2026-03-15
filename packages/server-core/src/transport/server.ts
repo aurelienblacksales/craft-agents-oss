@@ -74,6 +74,8 @@ export interface WsRpcServerOptions {
   onClientConnected?: (info: { clientId: string; webContentsId: number | null; workspaceId: string | null }) => void
   /** Called when a client disconnects. */
   onClientDisconnected?: (clientId: string) => void
+  /** External HTTP server to attach WS to (enables sharing port for HTTP + WS). */
+  httpServer?: import('node:http').Server
 }
 
 // ---------------------------------------------------------------------------
@@ -98,6 +100,7 @@ export class WsRpcServer implements RpcServer {
   private readonly tlsOptions: WsRpcTlsOptions | null
   private readonly onClientConnected: WsRpcServerOptions['onClientConnected']
   private readonly onClientDisconnected: WsRpcServerOptions['onClientDisconnected']
+  private readonly externalHttpServer: import('node:http').Server | null
 
   constructor(opts?: WsRpcServerOptions) {
     this.host = opts?.host ?? '127.0.0.1'
@@ -108,6 +111,7 @@ export class WsRpcServer implements RpcServer {
     this.tlsOptions = opts?.tls ?? null
     this.onClientConnected = opts?.onClientConnected
     this.onClientDisconnected = opts?.onClientDisconnected
+    this.externalHttpServer = opts?.httpServer ?? null
   }
 
   /** The actual port the server is listening on (available after listen()). */
@@ -217,8 +221,21 @@ export class WsRpcServer implements RpcServer {
           this.startHeartbeat()
           resolve()
         })
+      } else if (this.externalHttpServer) {
+        // External HTTP server mode: attach WSS to a pre-existing http.Server
+        this._protocol = 'ws'
+        this.wss = new WebSocketServer({ server: this.externalHttpServer })
+
+        const addr = this.externalHttpServer.address()
+        if (typeof addr === 'object' && addr) {
+          this._port = addr.port
+        } else {
+          this._port = this.requestedPort
+        }
+        this.startHeartbeat()
+        resolve()
       } else {
-        // Plain WS mode (unchanged)
+        // Plain WS mode (standalone)
         this._protocol = 'ws'
         this.wss = new WebSocketServer({
           host: this.host,
