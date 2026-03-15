@@ -307,6 +307,8 @@ export class SecureStorageBackend implements CredentialBackend {
   private getEncryptionKey(salt: Buffer): Buffer {
     if (this.encryptionKey) return this.encryptionKey;
 
+    const t0 = Date.now();
+
     // New stable machine ID using hardware UUID (v2)
     // This is far more stable than hostname which can change with network/DHCP
     const stableMachineId = createHash('sha256')
@@ -316,6 +318,11 @@ export class SecureStorageBackend implements CredentialBackend {
 
     // Derive key using PBKDF2
     this.encryptionKey = pbkdf2Sync(stableMachineId, salt, PBKDF2_ITERATIONS, KEY_SIZE, 'sha256');
+
+    const elapsed = Date.now() - t0;
+    if (elapsed > 500) {
+      console.warn(`[credentials] PBKDF2 key derivation took ${elapsed}ms (${PBKDF2_ITERATIONS} iterations)`);
+    }
 
     return this.encryptionKey;
   }

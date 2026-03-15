@@ -3,7 +3,7 @@ import { join } from 'path'
 import { homedir } from 'os'
 import { execSync } from 'child_process'
 import { RPC_CHANNELS } from '@craft-agent/shared/protocol'
-import { getGitBashPath, setGitBashPath, clearGitBashPath } from '@craft-agent/shared/config'
+import { getGitBashPath, setGitBashPath, clearGitBashPath, getNotificationsEnabled, setNotificationsEnabled } from '@craft-agent/shared/config'
 import { isUsableGitBashPath, validateGitBashPath } from '@craft-agent/server-core/services'
 import { validateFilePath } from '@craft-agent/server-core/handlers'
 import type { RpcServer } from '@craft-agent/server-core/transport'
@@ -30,6 +30,8 @@ export const CORE_HANDLED_CHANNELS = [
   RPC_CHANNELS.gitbash.CHECK,
   RPC_CHANNELS.gitbash.BROWSE,
   RPC_CHANNELS.gitbash.SET_PATH,
+  RPC_CHANNELS.notification.GET_ENABLED,
+  RPC_CHANNELS.notification.SET_ENABLED,
 ] as const
 
 export function registerSystemCoreHandlers(server: RpcServer, deps: HandlerDeps): void {
@@ -219,5 +221,14 @@ export function registerSystemCoreHandlers(server: RpcServer, deps: HandlerDeps)
       deps.platform.logger.error('showInFolder error:', message)
       throw new Error(`Failed to show in folder: ${message}`)
     }
+  })
+
+  // Notification settings (shared across Electron and web)
+  server.handle(RPC_CHANNELS.notification.GET_ENABLED, async () => {
+    return getNotificationsEnabled()
+  })
+
+  server.handle(RPC_CHANNELS.notification.SET_ENABLED, async (_ctx, enabled: boolean) => {
+    setNotificationsEnabled(enabled)
   })
 }

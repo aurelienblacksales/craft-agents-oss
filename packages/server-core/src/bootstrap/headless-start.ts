@@ -77,6 +77,9 @@ export async function startHeadlessServer<TSessionManager, THandlerDeps>(
     throw new Error('Server token is required. Pass options.serverToken or set CRAFT_SERVER_TOKEN.')
   }
 
+  const t0 = Date.now()
+  const elapsed = () => `${Date.now() - t0}ms`
+
   const platform = options.platformFactory?.() ?? createHeadlessPlatform()
 
   const bundledAssetsRoot = options.bundledAssetsRoot
@@ -88,6 +91,7 @@ export async function startHeadlessServer<TSessionManager, THandlerDeps>(
 
   bootstrapConfigArtifacts(platform)
   ensureGlobalConfigExists(platform)
+  platform.logger.info(`[headless] Config bootstrap done [${elapsed()}]`)
 
   const modelRefreshService = options.initModelRefreshService()
   const sessionManager = options.createSessionManager()
@@ -113,6 +117,7 @@ export async function startHeadlessServer<TSessionManager, THandlerDeps>(
   })
 
   await wsServer.listen()
+  platform.logger.info(`[headless] WS server listening [${elapsed()}]`)
 
   const oauthFlowStore = new OAuthFlowStore()
 
@@ -123,14 +128,16 @@ export async function startHeadlessServer<TSessionManager, THandlerDeps>(
   })
 
   options.registerAllRpcHandlers(wsServer, deps)
+  platform.logger.info(`[headless] RPC handlers registered [${elapsed()}]`)
 
   options.setSessionEventSink(sessionManager, wsServer.push.bind(wsServer))
 
   await options.initializeSessionManager(sessionManager)
+  platform.logger.info(`[headless] Session manager initialized [${elapsed()}]`)
 
   modelRefreshService.startAll()
 
-  platform.logger.info(`Craft Agent headless server listening on ${wsServer.protocol}://${rpcHost}:${wsServer.port}`)
+  platform.logger.info(`[headless] Startup complete [${elapsed()}] — listening on ${wsServer.protocol}://${rpcHost}:${wsServer.port}`)
 
   let stopped = false
   const stop = async (): Promise<void> => {

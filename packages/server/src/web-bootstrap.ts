@@ -18,6 +18,7 @@ const WEB_WORKSPACE_NAME = 'Default Workspace'
 const CLAUDE_CONNECTION_SLUG = 'claude-api'
 
 export async function webBootstrap(): Promise<void> {
+  const t0 = Date.now()
   const apiKey = process.env.ANTHROPIC_API_KEY
 
   if (!apiKey) {
@@ -52,7 +53,7 @@ export async function webBootstrap(): Promise<void> {
       slug: CLAUDE_CONNECTION_SLUG,
       name: 'Claude (API Key)',
       providerType: 'anthropic',
-      authType: 'api-key',
+      authType: 'api_key',
       defaultModel: 'claude-sonnet-4-20250514',
       createdAt: Date.now(),
     }
@@ -94,7 +95,7 @@ export async function webBootstrap(): Promise<void> {
     console.warn('[web-bootstrap] Failed to update workspace defaults:', err)
   }
 
-  console.log('[web-bootstrap] Web bootstrap complete')
+  console.log(`[web-bootstrap] Web bootstrap complete [${Date.now() - t0}ms]`)
 }
 
 async function getDefaultDataDir(): Promise<string> {

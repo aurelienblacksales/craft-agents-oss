@@ -1352,21 +1352,27 @@ export class SessionManager implements ISessionManager {
 
   async initialize(): Promise<void> {
     try {
+      const t0 = Date.now()
+
       // Backfill missing `models` arrays on existing LLM connections
       migrateLegacyLlmConnectionsConfig()
 
       // Fix defaultLlmConnection if it points to a non-existent connection
       migrateOrphanedDefaultConnections()
+      sessionLog.info(`[init] Config migrations done [${Date.now() - t0}ms]`)
 
       // Migrate legacy credentials to LLM connection format (one-time migration)
       // This ensures credentials saved before LLM connections are available via the new system
       await migrateLegacyCredentials()
+      sessionLog.info(`[init] Legacy credential migration done [${Date.now() - t0}ms]`)
 
       // Set up authentication environment variables (critical for SDK to work)
       await this.reinitializeAuth()
+      sessionLog.info(`[init] Auth reinitialized [${Date.now() - t0}ms]`)
 
       // Load existing sessions from disk
       this.loadSessionsFromDisk()
+      sessionLog.info(`[init] Sessions loaded from disk [${Date.now() - t0}ms]`)
 
       // Signal that initialization is complete — IPC handlers waiting on initGate will proceed
       this.initGate.markReady()

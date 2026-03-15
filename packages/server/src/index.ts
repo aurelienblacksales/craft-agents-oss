@@ -113,6 +113,13 @@ const instance = await (async () => {
         sessionManager.setEventSink(sink)
       },
       initializeSessionManager: async (sessionManager) => {
+        // Run web bootstrap BEFORE session manager init so that the workspace
+        // and LLM connection (with API key) exist before reinitializeAuth() reads them.
+        try {
+          await webBootstrap()
+        } catch (error) {
+          console.warn('[server] WARNING: Web bootstrap failed (non-fatal):', error instanceof Error ? error.message : String(error))
+        }
         await sessionManager.initialize()
       },
       cleanupSessionManager: async (sessionManager) => {
@@ -132,13 +139,6 @@ const instance = await (async () => {
     process.exit(1)
   }
 })()
-
-// Auto-provision workspace and LLM connection for web deployments
-try {
-  await webBootstrap()
-} catch (error) {
-  console.error('[server] WARNING: Web bootstrap failed (non-fatal):', error instanceof Error ? error.message : String(error))
-}
 
 console.log(`CRAFT_SERVER_URL=${instance.protocol}://${instance.host}:${instance.port}`)
 console.log(`CRAFT_SERVER_TOKEN=${instance.token}`)
