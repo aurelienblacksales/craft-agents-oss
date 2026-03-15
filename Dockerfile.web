@@ -3,7 +3,7 @@ FROM oven/bun:latest AS build
 
 WORKDIR /app
 
-# Copy package files for caching
+# Copy ALL workspace package.json files (bun install resolves workspace globs)
 COPY package.json bun.lock ./
 COPY packages/core/package.json packages/core/
 COPY packages/shared/package.json packages/shared/
@@ -11,7 +11,8 @@ COPY packages/server-core/package.json packages/server-core/
 COPY packages/server/package.json packages/server/
 COPY packages/session-tools-core/package.json packages/session-tools-core/
 COPY packages/ui/package.json packages/ui/
-COPY packages/bridge-mcp-server/package.json packages/bridge-mcp-server/
+COPY packages/pi-agent-server/package.json packages/pi-agent-server/
+COPY packages/session-mcp-server/package.json packages/session-mcp-server/
 COPY apps/electron/package.json apps/electron/
 COPY apps/web/package.json apps/web/
 COPY apps/cli/package.json apps/cli/
@@ -38,5 +39,4 @@ COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 EXPOSE 80
 
-# Use envsubst for runtime config
 CMD ["nginx", "-g", "daemon off;"]
