@@ -3,6 +3,8 @@
 RESOLVER=$(awk '/^nameserver/{print $2; exit}' /etc/resolv.conf)
 # Fallback to Google DNS if no resolver found
 RESOLVER="${RESOLVER:-8.8.8.8}"
+# Wrap IPv6 addresses in square brackets for nginx resolver directive
+case "$RESOLVER" in *:*) RESOLVER="[$RESOLVER]" ;; esac
 export RESOLVER
 
 # Substitute only our env vars, leaving nginx variables ($uri, $host, etc.) intact
