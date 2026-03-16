@@ -10,6 +10,7 @@ echo "CRAFT_BUNDLED_ASSETS_ROOT=${CRAFT_BUNDLED_ASSETS_ROOT:-not set}"
 echo "CRAFT_SERVER_TOKEN=${CRAFT_SERVER_TOKEN:+***set***}"
 echo "NODE_ENV=${NODE_ENV:-not set}"
 echo "PWD=$(pwd)"
+echo "USER=$(whoami)"
 
 # Railway sets PORT dynamically — sync CRAFT_RPC_PORT to match
 export CRAFT_RPC_PORT="${PORT:-9100}"
@@ -33,11 +34,15 @@ if [ -z "$CRAFT_SERVER_TOKEN" ]; then
     exit 1
 fi
 
-# Ensure data directories exist
+# Ensure data directories exist and are writable by the craft user.
+# Railway volume mounts override build-time chown, so we fix permissions at runtime.
 mkdir -p "${CRAFT_DATA_DIR:-/data/.craft-agent}/workspaces"
+chown -R craft:craft /data 2>/dev/null || true
 
-echo "=== Launching bun ==="
+echo "=== Launching bun as craft user ==="
 
-# Use exec to replace shell with bun (proper signal handling)
-# stdbuf -oL prevents stdout buffering in Docker
-exec stdbuf -oL bun packages/server/src/index.ts
+# Drop from root to craft user via gosu, then exec bun.
+# This is necessary because the Claude Code SDK refuses --dangerously-skip-permissions
+# when running as root/sudo for security reasons.
+# stdbuf -oL prevents stdout buffering in Docker.
+exec gosu craft stdbuf -oL bun packages/server/src/index.ts

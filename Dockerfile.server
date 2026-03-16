@@ -41,16 +41,14 @@ RUN cd packages/pi-agent-server && bun build src/index.ts --outdir=dist --target
 RUN cd packages/session-mcp-server && bun build src/index.ts --outdir=dist --target=node --format=cjs
 
 # Create non-root user — Claude Code SDK refuses --dangerously-skip-permissions as root
+# Install gosu for dropping privileges at runtime (lightweight su alternative for Docker)
 RUN groupadd --gid 1001 craft && \
-    useradd --uid 1001 --gid craft --shell /bin/sh --create-home craft
+    useradd --uid 1001 --gid craft --shell /bin/sh --create-home craft && \
+    apt-get update && apt-get install -y --no-install-recommends gosu && \
+    rm -rf /var/lib/apt/lists/*
 
-# Pre-create data directories with correct ownership
-# All paths must be consistent:
-#   homedir()/.craft-agent = /data/.craft-agent (credentials.enc)
-#   CRAFT_CONFIG_DIR       = /data/.craft-agent (config.json)
-#   CRAFT_DATA_DIR         = /data/.craft-agent (workspaces/)
+# Pre-create data directories (ownership fixed at runtime since volume mounts override build-time chown)
 RUN mkdir -p /data/.craft-agent/workspaces && \
-    chown -R craft:craft /data && \
     chown -R craft:craft /app && \
     chmod +x scripts/start-server.sh
 
@@ -64,8 +62,9 @@ ENV PORT=9100
 ENV NODE_ENV=production
 ENV HOME=/data
 
-# Switch to non-root user
-USER craft
+# NOTE: We do NOT use USER craft here because Railway volume mounts override
+# build-time file ownership. The start script fixes permissions at runtime,
+# then drops to the craft user via gosu.
 
 # Health check
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=5 \
